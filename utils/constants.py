@@ -1,0 +1,26 @@
+SUPPORTED_BENCHMARKS = [
+    "aokvqa",
+    "seedbench_img",
+    "seedbench2",
+    "naturalbench",
+]
+SUPPORTED_MODELS = [
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gemini-1.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.5-pro-preview-03-25",
+    "claude-3-opus",
+    "claude-3.7-sonnet",
+    "qwen-vl-max",
+    "qwen-vl-plus",
+    "qwen-2.5-7b",
+    "qwen-2.5-32b",
+    "qwen-2.5-72b",
+    "llama-3.2-11b",
+    "llama-3.2-90b",
+    "llava-1.5",
+    "llava-1.6",
+    "o4-mini",
+    "o3",
+]
