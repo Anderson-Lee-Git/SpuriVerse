@@ -60,10 +60,8 @@ Some components in the experiments require the access to all samples in the orig
 
 If your use case includes these components, you will need to download the full benchmarks by the following instructions.
 
-1. AOKVQA
-    We use the official [repository](https://github.com/allenai/aokvqa) to download the dataset. Once you have the dataset downloaded per the instruction of the original repository, you can set the `AOKVQA_ROOT` environment variable to the root of the downloaded dataset, specifically the `aokvqa` directory.
-2. SeedBench, SeedBench-2, and NaturalBench
-    We use [VLMEvalKit](https://github.com/open-compass/VLMEvalKit) as a shortcut to download these benchmarks. Specifically, you can run evaluations on those benchmarks by following the instruction of the original repository. At the beginning of the evaluation, it'll attempt to download the dataset under a root `LMUData`. You should set the `LMU_DATA_ROOT` environment variable after the download is complete, specifically the `LMUData` directory.
+1. **AOKVQA.** We use the official [repository](https://github.com/allenai/aokvqa) to download the dataset. Once you have the dataset downloaded per the instruction of the original repository, you can set the `AOKVQA_ROOT` environment variable to the root of the downloaded dataset, specifically the `aokvqa` directory.
+2. **SeedBench, SeedBench-2, and NaturalBench.** We use [VLMEvalKit](https://github.com/open-compass/VLMEvalKit) as a shortcut to download these benchmarks. Specifically, you can run evaluations on those benchmarks by following the instruction of the original repository. At the beginning of the evaluation, it'll attempt to download the dataset under a root `LMUData`. You should set the `LMU_DATA_ROOT` environment variable after the download is complete, specifically the `LMUData` directory.
 
 Once you have completed the above steps, you can access the full benchmarks through the `utils` we provided in the repository.
 
