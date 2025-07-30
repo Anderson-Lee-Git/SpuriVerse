@@ -1,15 +1,18 @@
 import os
 from PIL import Image
 import textwrap
+import random
+import numpy as np
 
-import google.generativeai as genai
-from google.generativeai.types import GenerationConfig
+from google import genai
+from google.genai.types import GenerateContentConfig, Part
 from unsloth import FastVisionModel  # FastLanguageModel for LLMs
 from transformers import (
     LlavaNextProcessor,
     LlavaNextForConditionalGeneration,
     AutoProcessor,
     LlavaForConditionalGeneration,
+    set_seed as transformers_set_seed,
 )
 from openai import OpenAI
 import anthropic
@@ -28,14 +31,59 @@ from utils.data_preparation import (
 )
 
 
+def set_random_seed(seed):
+    """
+    Set random seed for all libraries used in the VLMInterface.
+
+    This function ensures deterministic behavior across all random operations
+    in the VLMInterface by setting seeds for:
+    - Python's random module
+    - NumPy's random module
+    - PyTorch's random operations (CPU and GPU)
+    - CUDA operations
+    - Environment variables for deterministic behavior
+
+    Args:
+        seed (int): Random seed to set for all random operations
+    """
+    # Set Python random seed
+    random.seed(seed)
+
+    # Set NumPy random seed
+    np.random.seed(seed)
+
+    # Set PyTorch random seed
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # For multi-GPU setups
+
+    transformers_set_seed(seed)
+
+
 class VLMInterface:
-    def __init__(self, model_type):
+    """
+    Vision-Language Model Interface for various model types.
+
+    This class provides a unified interface for different vision-language models
+    including Gemini, LLaVA, LLaMA, GPT, Qwen, and Claude models.
+
+    Args:
+        model_type (str): Type of model to use (must be in SUPPORTED_MODELS)
+        seed (int, optional): Random seed for deterministic behavior. Defaults to 42.
+    """
+
+    def __init__(self, model_type, seed=42):
         assert (
             model_type in SUPPORTED_MODELS
         ), f"Unsupported model: {model_type}; supported models are {SUPPORTED_MODELS}"
         # default system instruction
         self._system_prompt = "You will only answer multiple choice questions with single answers as the options (A), (B), (C), or (D). You will answer them correctly. You will not use any fullstops or punctuation. You will not explain your answers or write words before or after the answers. Only the answer itself will you respond with."
         self.model_type = model_type
+        self.seed = seed
+
+        # Set random seed before initializing models
+        set_random_seed(seed)
+
         self.init_model()
 
     @property
@@ -49,18 +97,7 @@ class VLMInterface:
     def init_model(self):
         model_prefix = self.model_type.split("-")[0]
         if model_prefix == "gemini":
-            genai.configure(api_key=os.environ["GEMINI_KEY"])
-            generation_config = {
-                "temperature": 0,
-                "top_p": 1,
-                "max_output_tokens": 300,
-                "response_mime_type": "text/plain",
-            }
-            self.model = genai.GenerativeModel(
-                model_name=self.model_type,
-                generation_config=generation_config,
-                system_instruction=self.system_prompt,
-            )
+            self.model = genai.Client(api_key=os.environ["GEMINI_KEY"])
         elif self.model_type == "llava-1.6":
             self.processor = LlavaNextProcessor.from_pretrained(
                 "llava-hf/llava-v1.6-mistral-7b-hf"
@@ -157,11 +194,27 @@ class VLMInterface:
 
         if model_prefix == "gemini":
             try:
-                response = self.model.generate_content(
-                    [prompt, image],
-                    config=GenerationConfig(
-                        system_instruction=self.system_prompt,
-                    ),
+                generation_config = GenerateContentConfig(
+                    temperature=0.2,
+                    top_p=1,
+                    max_output_tokens=300,
+                    response_mime_type="text/plain",
+                    system_instruction=self.system_prompt,
+                    seed=self.seed,
+                )
+                image_type = image_path.split(".")[-1]
+                if image_type == "jpg":
+                    image_type = "jpeg"
+                response = self.model.models.generate_content(
+                    model=self.model_type,
+                    contents=[
+                        prompt,
+                        Part.from_bytes(
+                            data=encode_image(image_path),
+                            mime_type=f"image/{image_type}",
+                        )
+                    ],
+                    config=generation_config,
                 )
                 return response.text
             except Exception as e:
@@ -190,6 +243,7 @@ class VLMInterface:
             inputs = self.processor(images=image, text=prompt, return_tensors="pt").to(
                 device
             )
+
             output = self.model.generate(
                 **inputs,
                 max_new_tokens=100,
@@ -217,8 +271,13 @@ class VLMInterface:
             inputs = self.tokenizer(
                 image, input_text, add_special_tokens=False, return_tensors="pt"
             ).to(device)
+
             output = self.model.generate(
-                **inputs, max_new_tokens=300, use_cache=True, temperature=1.5, min_p=0.1
+                **inputs,
+                max_new_tokens=300,
+                use_cache=True,
+                temperature=0.2,
+                min_p=0.1,
             )
             decoded = self.tokenizer.decode(output[0], skip_special_tokens=True)
             return decoded
@@ -267,6 +326,7 @@ class VLMInterface:
                     model=model_name,
                     messages=context,
                     max_tokens=300,
+                    seed=self.seed,
                 )
                 return response.choices[0].message.content
             except Exception as e:
@@ -392,8 +452,13 @@ class VLMInterface:
             inputs = self.tokenizer(
                 image, input_text, add_special_tokens=False, return_tensors="pt"
             ).to(device)
+
             output = self.model.generate(
-                **inputs, max_new_tokens=300, use_cache=True, temperature=1.5, min_p=0.1
+                **inputs,
+                max_new_tokens=300,
+                use_cache=True,
+                temperature=0.2,
+                min_p=0.1,
             )
             decoded = self.tokenizer.decode(output[0], skip_special_tokens=True)
             return decoded
@@ -433,6 +498,7 @@ class VLMInterface:
                     model=self.model_type,
                     messages=context,
                     max_tokens=300,
+                    seed=self.seed,
                 )
                 return response.choices[0].message.content
             except Exception as e:
@@ -455,15 +521,6 @@ class VLMInterface:
                 image_type = "jpeg"
 
             context = [
-                {
-                    "role": "system",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": self.system_prompt,
-                        }
-                    ],
-                },
                 {
                     "role": "user",
                     "content": [
