@@ -18,8 +18,12 @@ SUPPORTED_MODELS=(
     "o3"
 )
 
+SEEDS=(42 332 1981 213 2901)
+
 for MODEL in "${SUPPORTED_MODELS[@]}"; do
     echo "Running evaluate.py for model: $MODEL"
-    python adhoc/evaluate.py --model-type "$MODEL" --anchor --spurious-group --non-spurious --prompt-strategy "direct_prompting"
+    for SEED in "${SEEDS[@]}"; do
+        python adhoc/evaluate.py --model-type "$MODEL" --anchor --spurious-group --non-spurious --prompt-strategy "direct_prompting" --seed "$SEED"
+    done
 done
 

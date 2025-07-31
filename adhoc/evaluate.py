@@ -66,7 +66,7 @@ def main(args):
     anchor_parsed = None
     spurious_group_parsed = None
     non_spurious_parsed = None
-    model = VLMInterface(model_type=args.model_type)
+    model = VLMInterface(model_type=args.model_type, seed=args.seed)
     # anchor set
     if args.anchor:
         pbar = tqdm(total=len(anchor_set_df))
@@ -103,7 +103,7 @@ def main(args):
         save_dir.mkdir(parents=True, exist_ok=True)
         # Save DataFrame to a CSV file
         eval_results_df.to_csv(
-            save_dir / "anchor_eval_results.csv",
+            save_dir / f"anchor_seed_{args.seed}_eval_results.csv",
             index=False,
         )
         acc = compute_acc(eval_results_df)
@@ -154,7 +154,7 @@ def main(args):
         save_dir.mkdir(parents=True, exist_ok=True)
         # Save DataFrame to a CSV file
         eval_results_df.to_csv(
-            save_dir / "spurious_group_eval_results.csv",
+            save_dir / f"spurious_group_seed_{args.seed}_eval_results.csv",
             index=False,
         )
         acc = compute_acc(eval_results_df)
@@ -190,7 +190,7 @@ def main(args):
         eval_results_df = pd.DataFrame(eval_results)
         # Save DataFrame to a CSV file
         eval_results_df.to_csv(
-            save_dir / "non_spurious_eval_results.csv",
+            save_dir / f"non_spurious_seed_{args.seed}_eval_results.csv",
             index=False,
         )
         acc = compute_acc(eval_results_df)
@@ -228,6 +228,12 @@ if __name__ == "__main__":
         "--non-spurious",
         action="store_true",
         help="evaluate non-spurious set; note that you need the full dataset downloaded to use this",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="seed for the model",
     )
     args = parser.parse_args()
     main(args)
