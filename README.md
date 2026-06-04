@@ -8,6 +8,16 @@ This is the official repository for **"Escaping the SpuriVerse: Can Large Vision
 
 SpuriVerse is a benchmark of **124 distinct types of spurious correlations** extracted from real-world VQA datasets, each with 1 realistic and 10 synthetic samples for a total of **1,364 multiple-choice questions**. We use it to study whether large vision-language models can generalize beyond the spurious correlations they have seen. State-of-the-art models reach only ~37% accuracy on the benchmark; finetuning on diverse synthetic spurious examples raises this to ~78%.
 
+## Benchmark Structure
+
+Three terms are used throughout this repository and the paper:
+
+- **Anchor set** — the 124 real-world VQA samples (one per spurious-correlation type), each a case where a strong VLM fails due to a validated spurious correlation.
+- **Spurious group** — the 10 synthetic counterfactual samples generated for each anchor, sharing that anchor's spurious pattern (1,240 samples total).
+- **Non-spurious** — control samples drawn from the original benchmarks (AOKVQA, SeedBench, SeedBench-2, NaturalBench) that do *not* exhibit the spurious correlation, used as a baseline.
+
+The repository is organized around the three stages of the paper: **curation** of the benchmark (`curation/`), **evaluation** of VLMs on it (`adhoc/`), and **finetuning** to escape the spurious correlations (`finetune/`). See [Usage](#usage) below.
+
 ## Dependencies
 ```bash
 pip install -r requirements.txt
@@ -54,9 +64,14 @@ This includes all the images in the anchor set, spurious group images, and their
 1. evaluate the performance of a VLM on SpuriVerse
 2. finetune a VLM on SpuriVerse's anchor or spurious group images
 
-The artifact is hosted on the Hugging Face Hub at [yanyiwei/SpuriVerse](https://huggingface.co/datasets/yanyiwei/SpuriVerse). To download it, run the script:
+The artifact is hosted on the Hugging Face Hub at [yanyiwei/SpuriVerse](https://huggingface.co/datasets/yanyiwei/SpuriVerse). The script below pulls it directly from the Hub (via `load_dataset("yanyiwei/SpuriVerse")`) and unpacks the anchor and spurious-group images into the local directories used by the rest of the pipeline:
 ```bash
 python3 adhoc/prepare_data.py
+```
+You can also load it directly in your own code:
+```python
+from datasets import load_dataset
+ds = load_dataset("yanyiwei/SpuriVerse")  # each row: anchor `image` + `spurious_group_1..10`
 ```
 
 ### Full Benchmarks
