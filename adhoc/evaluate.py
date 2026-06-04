@@ -49,6 +49,29 @@ def parse_predictions(predictions, args):
     return parsed
 
 
+def parse_only_for_split(save_dir: Path, split: str, seed: int, args):
+    """Load existing results CSV for a split and re-parse predictions in-place."""
+    file_map = {
+        "anchor": save_dir / f"anchor_seed_{seed}_eval_results.csv",
+        "spurious_group": save_dir / f"spurious_group_seed_{seed}_eval_results.csv",
+        "non_spurious": save_dir / f"non_spurious_seed_{seed}_eval_results.csv",
+    }
+    fpath = file_map[split]
+    if not fpath.exists():
+        print(f"[parse-only] Missing file for {split}: {fpath}")
+        return
+    df = pd.read_csv(fpath)
+    if "prediction" not in df.columns:
+        print(f"[parse-only] No 'prediction' column in {fpath}; skipping")
+        return
+    preds = df["prediction"].astype(str).tolist()
+    new_parsed = parse_predictions(preds, args)
+    df["parsed"] = new_parsed
+    df.to_csv(fpath, index=False)
+    acc = compute_acc(df)
+    print(f"[parse-only] {split} accuracy (seed {seed}): {acc}")
+
+
 def main(args):
     """
     Evaluates model on full benchmark to extract the error set
@@ -57,6 +80,23 @@ def main(args):
         Path(os.getenv("EVAL_HUMAN_ACCEPTED_DIR")) / "reference_anchor_set.csv"
     )
     anchor_set_df = pd.read_csv(anchor_set_path)
+
+    save_dir = (
+        Path(os.getenv("ADHOC_EVAL_RESULTS_DIR"))
+        / args.model_type
+        / f"{args.prompt_strategy}"
+    )
+
+    # If parse-only: skip generation and re-parse existing CSVs per selected splits
+    if args.parse_only:
+        if args.anchor:
+            parse_only_for_split(save_dir, "anchor", args.seed, args)
+        if args.spurious_group:
+            parse_only_for_split(save_dir, "spurious_group", args.seed, args)
+        if args.non_spurious:
+            parse_only_for_split(save_dir, "non_spurious", args.seed, args)
+        return
+
     anchor_predictions = []
     spurious_group_predictions = []
     non_spurious_predictions = []
@@ -95,11 +135,6 @@ def main(args):
             "answer": anchor_answers,
         }
         eval_results_df = pd.DataFrame(eval_results)
-        save_dir = (
-            Path(os.getenv("ADHOC_EVAL_RESULTS_DIR"))
-            / args.model_type
-            / f"{args.prompt_strategy}"
-        )
         save_dir.mkdir(parents=True, exist_ok=True)
         # Save DataFrame to a CSV file
         eval_results_df.to_csv(
@@ -146,11 +181,6 @@ def main(args):
             "answer": spurious_group_answers,
         }
         eval_results_df = pd.DataFrame(eval_results)
-        save_dir = (
-            Path(os.getenv("ADHOC_EVAL_RESULTS_DIR"))
-            / args.model_type
-            / f"{args.prompt_strategy}"
-        )
         save_dir.mkdir(parents=True, exist_ok=True)
         # Save DataFrame to a CSV file
         eval_results_df.to_csv(
@@ -234,6 +264,11 @@ if __name__ == "__main__":
         type=int,
         default=42,
         help="seed for the model",
+    )
+    parser.add_argument(
+        "--parse-only",
+        action="store_true",
+        help="Only re-parse existing prediction outputs; do not run model inference",
     )
     args = parser.parse_args()
     main(args)

@@ -102,34 +102,51 @@ def get_is_filtered_benchmark_id_set(benchmark):
 
 
 def parse_data(data):
-    if "A)" in data:
-        return "A"
-    elif "B)" in data:
-        return "B"
-    elif "C)" in data:
-        return "C"
-    elif "D)" in data:
-        return "D"
-    elif "E)" in data:
+    """
+    Robustly parse a multiple-choice answer from free-form model output.
+    Priority:
+      1) A line that is exactly one of: (A), (B), (C), (D) or A/B/C/D
+      2) Phrases like 'final answer: (B)' or 'answer: C'
+      3) Parenthesized choice anywhere, prefer the last occurrence
+    Avoid naive substring checks to prevent defaulting to 'A'.
+    Return 'E' if nothing reliable is found.
+    """
+    import re
+
+    if not isinstance(data, str):
         return "E"
-    elif "A." in data:
-        return "A"
-    elif "B." in data:
-        return "B"
-    elif "C." in data:
-        return "C"
-    elif "D." in data:
-        return "D"
-    elif "A" in data:
-        return "A"
-    elif "B" in data:
-        return "B"
-    elif "C" in data:
-        return "C"
-    elif "D" in data:
-        return "D"
-    elif "E" in data:
+
+    text = data.strip()
+    if not text:
         return "E"
+
+    # 1) Check line-by-line from bottom: exact single-letter choice
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    for ln in reversed(lines):
+        # Exact (X) or X
+        m = re.fullmatch(r"\(?([A-E])\)?", ln, flags=re.IGNORECASE)
+        if m:
+            return m.group(1).upper()
+
+    # 2) Look for explicit 'final answer' or 'answer' cues
+    m = re.search(r"final\s*answer\s*[:\-]?\s*\(?([A-E])\)?", text, flags=re.IGNORECASE)
+    if m:
+        return m.group(1).upper()
+    m = re.search(r"answer\s*[:\-]?\s*\(?([A-E])\)?", text, flags=re.IGNORECASE)
+    if m:
+        return m.group(1).upper()
+
+    # 3) Any parenthesized choice; prefer the last one in the text
+    candidates = re.findall(r"\(([A-E])\)", text, flags=re.IGNORECASE)
+    if candidates:
+        return candidates[-1].upper()
+
+    # 4) Fallback: look for standalone letters surrounded by non-letters (less likely to collide)
+    m = re.search(r"\b([A-E])\b", text, flags=re.IGNORECASE)
+    if m:
+        return m.group(1).upper()
+
+    return "E"
 
 
 def parse_data_w_gpt(data, client):
@@ -176,16 +193,27 @@ def parse_data_w_gpt(data, client):
 
 
 def parse_llava_data(data):
+    """
+    LLaVA-1.6 outputs can contain multiple [/INST] markers due to the chat template.
+    Extract the content strictly after the LAST [/INST] and parse that.
+    """
+    import re
 
-    # Extract the text after [/INST]
-    result = re.search(r"\[/INST\](.*)", data, re.DOTALL)
+    if not isinstance(data, str) or not data.strip():
+        return "E"
 
-    # Output the extracted text
-    if result:
-        ret = result.group(1).strip()
+    # Split on [/INST] and take the segment after the last occurrence
+    parts = re.split(r"\[/INST\]", data, flags=re.DOTALL)
+    if len(parts) >= 2:
+        ret = parts[-1].strip()
     else:
-        print("No text found after [/INST].")
-        ret = "(E)"
+        # Fallback to previous behavior (first match) if no split worked
+        m = re.search(r"\[/INST\](.*)", data, re.DOTALL)
+        ret = m.group(1).strip() if m else "(E)"
+
+    # Sometimes responses may still include role prefixes; trim obvious ones
+    # e.g., "ASSISTANT:" or similar headers
+    ret = re.sub(r"^(ASSISTANT:|Assistant:|assistant:)\s*", "", ret)
 
     return parse_data(ret)
 
