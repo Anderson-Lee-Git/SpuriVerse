@@ -195,8 +195,8 @@ class VLMInterface:
         if model_prefix == "gemini":
             try:
                 generation_config = GenerateContentConfig(
-                    temperature=0.2,
-                    top_p=1,
+                    temperature=0.7,
+                    top_p=0.9,
                     max_output_tokens=300,
                     response_mime_type="text/plain",
                     system_instruction=self.system_prompt,
@@ -247,6 +247,9 @@ class VLMInterface:
             output = self.model.generate(
                 **inputs,
                 max_new_tokens=100,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.9,
                 return_dict_in_generate=True,
                 output_scores=True,
             )
@@ -499,6 +502,8 @@ class VLMInterface:
                     messages=context,
                     max_tokens=300,
                     seed=self.seed,
+                    temperature=0.7,
+                    top_p=0.9,
                 )
                 return response.choices[0].message.content
             except Exception as e:

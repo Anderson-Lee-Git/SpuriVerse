@@ -66,4 +66,4 @@ This document details the integration methods for each supported model type in t
 - [x] llava-1.5
 - [x] llava-1.6
 - [x] o4-mini (not supported in Response API)
-- [x] o3 (not supported in Response API)
+- [] o3 (not supported in Response API)
